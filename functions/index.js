@@ -22,6 +22,7 @@ export const notifyChat = onDocumentCreated(
       if (d.id === msg.by) return
       ;(d.data().tokens || []).forEach((token) => targets.push({ uid: d.id, token }))
     })
+    console.log(`notifyChat: sender=${sender?.email}, users=${users.size}, targets=${targets.length}`)
     if (!targets.length) return
 
     const body = String(msg.text || '').slice(0, 140)
@@ -34,6 +35,7 @@ export const notifyChat = onDocumentCreated(
       }))
     )
 
+    console.log(`notifyChat: sent success=${res.successCount} failure=${res.failureCount}`)
     // Καθάρισμα tokens που δεν ισχύουν πια
     const dead = []
     res.responses.forEach((r, i) => {

@@ -174,7 +174,7 @@ export default function Payments({ me, users, byId }) {
       {open && (
         <form className="card form" onSubmit={save}>
           {editId && <strong>✎ Επεξεργασία δαπάνης</strong>}
-          <input placeholder="Τι ήταν;" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} autoFocus />
+          <input placeholder="Τι ήταν;" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} autoFocus={!editId} />
           <div className="row">
             <input inputMode="decimal" placeholder="Ποσό €" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
             <input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
