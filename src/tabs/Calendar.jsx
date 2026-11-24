@@ -49,6 +49,21 @@ function untilFromCount(date, repeat, count) {
   return addMonths(date, 12 * n)
 }
 
+// Πληκτρολόγηση ώρας 24ωρου: "1730" -> "17:30", "930" -> "9:30", "17" -> "17"
+const formatTime = (v) => {
+  const d = v.replace(/\D/g, '').slice(0, 4)
+  return d.length > 2 ? `${d.slice(0, -2)}:${d.slice(-2)}` : d
+}
+// Επιστρέφει "HH:MM", '' (καμία ώρα) ή null (άκυρη)
+const parseTime = (v) => {
+  if (!v) return ''
+  const [h, m = '0'] = v.split(':')
+  const hh = Number(h)
+  const mm = Number(m)
+  if (!Number.isInteger(hh) || !Number.isInteger(mm) || hh > 23 || mm > 59) return null
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+}
+
 export default function Calendar({ me, byId }) {
   const [events] = useCol('events', ['date', 'asc'], 1000)
   const [bills] = useCol('bills', ['due', 'asc'], 300)
@@ -78,6 +93,8 @@ export default function Calendar({ me, byId }) {
   const add = async (e) => {
     e.preventDefault()
     if (!title.trim()) return
+    const t24 = parseTime(time)
+    if (t24 === null) return alert('Η ώρα δεν είναι σωστή. Γράψε π.χ. 1730 για 17:30.')
     let until = null
     if (repeat && endType === 'count') until = untilFromCount(sel, repeat, parseInt(count, 10) || 1)
     if (repeat && endType === 'until') {
@@ -87,7 +104,7 @@ export default function Calendar({ me, byId }) {
     await addDoc(collection(db, 'events'), {
       title: title.trim(),
       date: sel,
-      time,
+      time: t24,
       repeat,
       ...(until ? { until } : {}),
       by: me.uid,
@@ -147,7 +164,16 @@ export default function Calendar({ me, byId }) {
       <form className="evform" onSubmit={add}>
         <div className="row">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Νέο γεγονός…" />
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="time" />
+          <input
+            value={time}
+            onChange={(e) => setTime(formatTime(e.target.value))}
+            onBlur={() => { const t = parseTime(time); if (t) setTime(t) }}
+            inputMode="numeric"
+            placeholder="ΩΩ:ΛΛ"
+            maxLength={5}
+            className="time"
+            aria-label="Ώρα (24ωρο)"
+          />
           <button className="primary">+</button>
         </div>
         <select value={repeat} onChange={(e) => setRepeat(e.target.value)}>

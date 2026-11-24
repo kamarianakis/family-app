@@ -79,7 +79,7 @@ small { font-size: 12.5px; }
 .dot { width: 6px; height: 6px; border-radius: 50%; display: block; }
 .dot.ev { background: var(--brand); } .dot.bill { background: var(--bill); }
 .day.sel .dot.ev { background: var(--brand-ink); }
-.time { width: 110px; flex-shrink: 0; }
+.time { width: 92px; text-align: center; flex-shrink: 0; }
 .time-tag { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; min-width: 42px; }
 
 main.chat-main { padding-bottom: 0; display: flex; flex-direction: column; }
