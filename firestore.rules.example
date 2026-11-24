@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Μόνο οι δύο λογαριασμοί Google της οικογένειας έχουν πρόσβαση.
+    // ΑΛΛΑΞΕ τα δύο email παρακάτω (πεζά γράμματα).
+    function isFamily() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'EMAIL_1@gmail.com',
+          'EMAIL_2@gmail.com'
+        ];
+    }
+
+    // Το προφίλ μπορεί να γραφτεί μόνο από τον ίδιο τον χρήστη
+    match /users/{uid} {
+      allow read: if isFamily();
+      allow write: if isFamily() && request.auth.uid == uid;
+    }
+
+    // Όλα τα υπόλοιπα (ψώνια, λογαριασμοί, δαπάνες, events, μηνύματα)
+    match /{col}/{docId} {
+      allow read, write: if isFamily() && col in ['shopping', 'bills', 'expenses', 'events', 'messages'];
+    }
+  }
+}
