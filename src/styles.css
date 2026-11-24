@@ -112,3 +112,9 @@ button.danger { background: var(--danger); border-color: var(--danger); color: #
 .heart.on .heart-body { fill: #e11d48; }
 .heart.on .heart-dot { fill: #fff; }
 .editing { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); padding: 6px 4px 0; }
+
+.bubble-row { display: flex; align-items: center; gap: 6px; max-width: 92%; }
+.bubble-row .bubble { max-width: none; min-width: 0; }
+.like { padding: 6px; }
+
+button.bell { font-size: 20px; padding: 4px 8px; }

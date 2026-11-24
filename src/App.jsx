@@ -9,6 +9,7 @@ import {
 import { doc, setDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from './firebase'
 import { useCol } from './hooks'
+import { disablePush, enablePush, pushStatus, refreshPush } from './push'
 import Shopping from './tabs/Shopping'
 import Bills from './tabs/Bills'
 import Payments from './tabs/Payments'
@@ -85,7 +86,10 @@ class ErrorBoundary extends Component {
 export default function App() {
   const [user, setUser] = useState(undefined) // undefined = φορτώνει
   const [denied, setDenied] = useState(false)
-  const [tab, setTab] = useState(() => localStorage.getItem('tab') || 'shopping')
+  const [tab, setTab] = useState(() =>
+    location.hash === '#chat' ? 'chat' : localStorage.getItem('tab') || 'shopping'
+  )
+  const [push, setPush] = useState('off')
   const [users] = useCol('users')
 
   useEffect(() => {
@@ -109,6 +113,39 @@ export default function App() {
 
   useEffect(() => localStorage.setItem('tab', tab), [tab])
 
+  // Πάτημα σε ειδοποίηση -> άνοιγμα του chat
+  useEffect(() => {
+    const onMsg = (e) => e.data?.type === 'open-tab' && setTab(e.data.tab)
+    navigator.serviceWorker?.addEventListener('message', onMsg)
+    return () => navigator.serviceWorker?.removeEventListener('message', onMsg)
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+    pushStatus().then(setPush)
+    refreshPush(user.uid)
+  }, [user])
+
+  const togglePush = async () => {
+    try {
+      if (push === 'on') {
+        if (!confirm('Απενεργοποίηση ειδοποιήσεων σε αυτή τη συσκευή;')) return
+        await disablePush(user.uid)
+      } else if (push === 'needs-install') {
+        return alert('Στο iPhone, πρώτα πρόσθεσε την εφαρμογή στην Αρχική οθόνη (Κοινοποίηση → Προσθήκη στην Αρχική οθόνη) και άνοιξέ την από εκεί.')
+      } else if (push === 'denied') {
+        return alert('Οι ειδοποιήσεις είναι μπλοκαρισμένες. Άλλαξέ το από τις ρυθμίσεις του κινητού για αυτή την εφαρμογή.')
+      } else if (push === 'unsupported') {
+        return alert('Αυτός ο browser δεν υποστηρίζει ειδοποιήσεις.')
+      } else {
+        await enablePush(user.uid)
+      }
+    } catch (e) {
+      alert(e.message)
+    }
+    setPush(await pushStatus())
+  }
+
   if (user === undefined) return <div className="center">Φόρτωση…</div>
   if (!user) return <Login />
   if (denied)
@@ -127,6 +164,10 @@ export default function App() {
     <div className="app">
       <header>
         <h2>{TABS.find((t) => t.id === tab).label}</h2>
+        <div className="row">
+        <button className="ghost bell" onClick={togglePush} title="Ειδοποιήσεις">
+          {push === 'on' ? '🔔' : '🔕'}
+        </button>
         <button
           className="ghost"
           onClick={() => confirm(`Αποσύνδεση από το ${user.email};`) && signOut(auth)}
@@ -134,6 +175,7 @@ export default function App() {
         >
           {user.photoURL ? <img src={user.photoURL} alt="" className="avatar" referrerPolicy="no-referrer" /> : '⎋'}
         </button>
+        </div>
       </header>
       <main className={tab === 'chat' ? 'chat-main' : ''}>
         <ErrorBoundary key={tab} onReset={() => setTab('shopping')}>

@@ -96,11 +96,23 @@ export default function Chat({ me, byId }) {
               {newDay && m.createdAt && <div className="day-sep">{dayLabel(m.createdAt)}</div>}
               <div className={`msg ${mine ? 'mine' : ''}`}>
                 {!mine && <small className="muted">{firstName(byId[m.by])}</small>}
-                <div
-                  className={`bubble ${mine ? 'tappable' : ''}`}
-                  onClick={() => mine && setMenu(menu === m.id ? null : m.id)}
-                >
-                  {String(m.text ?? '')}
+                <div className="bubble-row">
+                  {mine && likes.length > 0 && (
+                    <span className="like static" title="Του άρεσε">
+                      <Heart on size={18} />
+                    </span>
+                  )}
+                  <div
+                    className={`bubble ${mine ? 'tappable' : ''}`}
+                    onClick={() => mine && setMenu(menu === m.id ? null : m.id)}
+                  >
+                    {String(m.text ?? '')}
+                  </div>
+                  {!mine && (
+                    <button className={`like ${liked ? 'on' : ''}`} onClick={() => toggleLike(m)} aria-label="Like">
+                      <Heart on={liked} size={20} />
+                    </button>
+                  )}
                 </div>
                 {menu === m.id && (
                   <div className="row msg-menu">
@@ -113,17 +125,6 @@ export default function Chat({ me, byId }) {
                     {hhmm(m.createdAt)}
                     {m.edited ? ' · επεξεργάστηκε' : ''}
                   </small>
-                  {mine ? (
-                    likes.length > 0 && (
-                      <span className="like static" title="Του άρεσε">
-                        <Heart on size={16} />
-                      </span>
-                    )
-                  ) : (
-                    <button className={`like ${liked ? 'on' : ''}`} onClick={() => toggleLike(m)} aria-label="Like">
-                      <Heart on={liked} />
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
