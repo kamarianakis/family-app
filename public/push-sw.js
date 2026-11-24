@@ -10,20 +10,16 @@ self.addEventListener('push', (event) => {
   const n = p.notification || {}
   const title = d.title || n.title || 'Οικογένεια'
   const body = d.body || n.body || ''
+  // Δείχνουμε πάντα την ειδοποίηση (το iOS το απαιτεί για κάθε push)
   event.waitUntil(
-    (async () => {
-      // Αν η εφαρμογή είναι ανοιχτή μπροστά σου, δεν χρειάζεται ειδοποίηση
-      const wins = await clients.matchAll({ type: 'window', includeUncontrolled: true })
-      if (wins.some((w) => w.visibilityState === 'visible' && w.focused)) return
-      await self.registration.showNotification(title, {
-        body,
-        icon: '/family-app/pwa-192x192.png',
-        badge: '/family-app/pwa-64x64.png',
-        tag: 'chat',
-        renotify: true,
-        data: { url: d.url || '/family-app/' }
-      })
-    })()
+    self.registration.showNotification(title, {
+      body,
+      icon: '/family-app/pwa-192x192.png',
+      badge: '/family-app/pwa-64x64.png',
+      tag: 'chat',
+      renotify: true,
+      data: { url: d.url || '/family-app/' }
+    })
   )
 })
 
