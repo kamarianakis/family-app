@@ -4,6 +4,16 @@ import { db } from '../firebase'
 import { useCol } from '../hooks'
 import { firstName } from '../utils'
 
+// Ημερομηνία καταχώρησης (d/m) από το Firestore timestamp· κενό όσο δεν έχει γραφτεί ακόμα
+const added = (ts) => {
+  try {
+    const d = ts && typeof ts.toDate === 'function' ? ts.toDate() : null
+    return d ? `${d.getDate()}/${d.getMonth() + 1}` : ''
+  } catch {
+    return ''
+  }
+}
+
 export default function Shopping({ me, byId }) {
   const [items] = useCol('shopping', ['createdAt', 'desc'], 300)
   const [text, setText] = useState('')
@@ -43,7 +53,7 @@ export default function Shopping({ me, byId }) {
           <li key={i.id}>
             <button className="check" onClick={() => toggle(i)} aria-label="Έγινε" />
             <span className="grow">{i.text}</span>
-            <small className="muted">{firstName(byId[i.by])}</small>
+            <small className="muted">{firstName(byId[i.by])}{added(i.createdAt) ? ` · ${added(i.createdAt)}` : ''}</small>
             <button className="ghost" onClick={() => remove(i)} aria-label="Διαγραφή">✕</button>
           </li>
         ))}

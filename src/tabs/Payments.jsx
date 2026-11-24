@@ -64,6 +64,17 @@ export default function Payments({ me, users, byId }) {
   // ό,τι δεν έχει μοιραστεί σε άτομα (για τα "Κοινά")
   const rest = amountCents - toCents(f.aMine) - toCents(f.aOther) - (f.aCommon.trim() === '' ? 0 : toCents(f.aCommon))
 
+  // Σταθερή σειρά ζευγαριού (ίδια και στα δύο κινητά): κατά email, φθίνουσα
+  const pair = [...users].sort((x, y) => (y.email || '').localeCompare(x.email || '')).slice(0, 2)
+  const initial = (u) => (firstName(u) || '?').charAt(0).toUpperCase()
+  const pct = (v) => `${Math.round(v * 10) / 10}%`
+  // π.χ. "50% - 50% · Μ/Ε: 12,50 € - 12,50 €"
+  const splitText = (e) => {
+    const [a, b] = pair.map((u) => e.shares?.[u.id] || 0)
+    const t = e.amount || 1
+    return `${pct((a / t) * 100)} - ${pct((b / t) * 100)} · ${initial(pair[0])}/${initial(pair[1])}: ${eur(a)} - ${eur(b)}`
+  }
+
   const save = async (e) => {
     e.preventDefault()
     const amount = toCents(f.amount)
@@ -261,11 +272,19 @@ export default function Payments({ me, users, byId }) {
         {entries.slice(0, 60).map((e) => (
           <li key={e.id} className={e.id === editId ? 'editing-row' : ''}>
             <div className={`grow ${e.type === 'settlement' ? '' : 'tappable'}`} onClick={() => startEdit(e)}>
-              <div>{e.type === 'settlement' ? '🤝 ' : ''}{e.title}</div>
+              <div>
+                {e.type === 'settlement' ? '🤝 ' : ''}{e.title}
+                <small className="muted"> - {fmtDate(e.date)}</small>
+              </div>
               <small className="muted">
-                {fmtDate(e.date)} · {e.type === 'settlement' ? `${firstName(byId[e.paidBy])} → ${firstName(byId[Object.keys(e.shares)[0]])}` : `πλήρωσε ${firstName(byId[e.paidBy])}`}
+                {e.type === 'settlement'
+                  ? `${firstName(byId[e.paidBy])} → ${firstName(byId[Object.keys(e.shares)[0]])}`
+                  : `πλήρωσε ${firstName(byId[e.paidBy])}`}
                 {e.cat ? ` · ${e.cat}` : ''}
               </small>
+              {e.type !== 'settlement' && pair.length === 2 && (
+                <div><small className="muted">{splitText(e)}</small></div>
+              )}
             </div>
             <strong onClick={() => startEdit(e)}>{eur(e.amount)}</strong>
             <button className="ghost" onClick={() => remove(e)} aria-label="Διαγραφή">✕</button>

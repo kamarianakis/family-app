@@ -26,14 +26,20 @@ export const notifyChat = onDocumentCreated(
     if (!targets.length) return
 
     const body = String(msg.text || '').slice(0, 140)
-    const res = await getMessaging().sendEach(
+    let res
+    try {
+      res = await getMessaging().sendEach(
       targets.map(({ token }) => ({
         token,
         // data-only: το service worker της εφαρμογής εμφανίζει την ειδοποίηση
         data: { title: senderName, body, url: '/family-app/#chat' },
         webpush: { headers: { Urgency: 'high', TTL: '3600' } }
       }))
-    )
+      )
+    } catch (e) {
+      console.error('sendEach threw', e?.code, e?.message)
+      return
+    }
 
     console.log(`notifyChat: sent success=${res.successCount} failure=${res.failureCount}`)
     // Καθάρισμα tokens που δεν ισχύουν πια
