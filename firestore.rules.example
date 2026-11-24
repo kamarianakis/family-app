@@ -19,9 +19,20 @@ service cloud.firestore {
       allow write: if isFamily() && request.auth.uid == uid;
     }
 
-    // Όλα τα υπόλοιπα (ψώνια, λογαριασμοί, δαπάνες, events, μηνύματα)
+    // Μηνύματα: μόνο ο συντάκτης αλλάζει/σβήνει το δικό του. Ο άλλος μπορεί να αλλάξει μόνο τα likes.
+    match /messages/{id} {
+      allow read: if isFamily();
+      allow create: if isFamily() && request.resource.data.by == request.auth.uid;
+      allow update: if isFamily() && (
+        resource.data.by == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+      );
+      allow delete: if isFamily() && resource.data.by == request.auth.uid;
+    }
+
+    // Όλα τα υπόλοιπα (ψώνια, λογαριασμοί, δαπάνες, events)
     match /{col}/{docId} {
-      allow read, write: if isFamily() && col in ['shopping', 'bills', 'expenses', 'events', 'messages'];
+      allow read, write: if isFamily() && col in ['shopping', 'bills', 'expenses', 'events'];
     }
   }
 }
