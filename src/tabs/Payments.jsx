@@ -23,7 +23,7 @@ export default function Payments({ me, users, byId }) {
   const [open, setOpen] = useState(false)
   const now = new Date()
   const [month, setMonth] = useState({ y: now.getFullYear(), m: now.getMonth() })
-  const [f, setF] = useState({ title: '', amount: '', paidBy: me.uid, split: 'equal', otherShare: '', cat: CATEGORIES[0], date: today() })
+  const [f, setF] = useState({ title: '', amount: '', paidBy: me.uid, split: 'equal', pMine: '50', pOther: '50', aMine: '', aOther: '', aCommon: '', cat: CATEGORIES[0], date: today() })
 
   const net = useMemo(() => balances(entries), [entries])
   const myNet = net[me.uid] || 0 // >0: μου χρωστάνε, <0: χρωστάω
@@ -42,6 +42,16 @@ export default function Payments({ me, users, byId }) {
     setMonth({ y: t.getFullYear(), m: t.getMonth() })
   }
 
+  const myName = firstName(byId[me.uid]) || 'Εγώ'
+  const otherName = other ? firstName(other) : ''
+  const setPct = (v, key, otherKey) => {
+    const n = parseFloat(v.replace(',', '.'))
+    setF({ ...f, [key]: v, [otherKey]: Number.isFinite(n) ? String(Math.round((100 - n) * 100) / 100) : '' })
+  }
+  const amountCents = toCents(f.amount)
+  // ό,τι δεν έχει μοιραστεί σε άτομα (για τα "Κοινά")
+  const rest = amountCents - toCents(f.aMine) - toCents(f.aOther) - (f.aCommon.trim() === '' ? 0 : toCents(f.aCommon))
+
   const save = async (e) => {
     e.preventDefault()
     const amount = toCents(f.amount)
@@ -58,9 +68,19 @@ export default function Payments({ me, users, byId }) {
       shares = { [otherId]: amount }
     } else if (f.split === 'payerAll') {
       shares = { [payer]: amount }
+    } else if (f.split === 'percent') {
+      const p = parseFloat(String(f.pMine).replace(',', '.'))
+      if (!(p >= 0 && p <= 100)) return alert('Το ποσοστό πρέπει να είναι από 0 έως 100.')
+      const mine = Math.round((amount * p) / 100)
+      shares = { [me.uid]: mine, [other.id]: amount - mine }
     } else {
-      const o = Math.min(Math.max(toCents(f.otherShare), 0), amount)
-      shares = { [payer]: amount - o, [otherId]: o }
+      const a = toCents(f.aMine)
+      const b = toCents(f.aOther)
+      const c = f.aCommon.trim() === '' ? amount - a - b : toCents(f.aCommon)
+      if (c < 0 || a + b + c !== amount)
+        return alert(`Τα ποσά δεν δίνουν ${eur(amount)} (τώρα ${eur(a + b + Math.max(c, 0))}).`)
+      const half = Math.round(c / 2)
+      shares = { [me.uid]: a + c - half, [other.id]: b + half }
     }
     await addDoc(collection(db, 'expenses'), {
       type: 'expense',
@@ -73,7 +93,7 @@ export default function Payments({ me, users, byId }) {
       by: me.uid,
       createdAt: serverTimestamp()
     })
-    setF({ ...f, title: '', amount: '', otherShare: '' })
+    setF({ ...f, title: '', amount: '', pMine: '50', pOther: '50', aMine: '', aOther: '', aCommon: '' })
     setOpen(false)
   }
 
@@ -122,28 +142,60 @@ export default function Payments({ me, users, byId }) {
             <input inputMode="decimal" placeholder="Ποσό €" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
             <input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
           </div>
-          <label>Πλήρωσε
-            <select value={f.paidBy} onChange={(e) => setF({ ...f, paidBy: e.target.value })}>
-              <option value={me.uid}>{firstName(byId[me.uid]) || 'Εγώ'} (εγώ)</option>
-              {other && <option value={other.id}>{firstName(other)}</option>}
-            </select>
-          </label>
-          <label>Διαίρεση
-            <select value={f.split} onChange={(e) => setF({ ...f, split: e.target.value })}>
-              <option value="equal">Μισά-μισά</option>
-              <option value="otherAll">Όλο ο/η άλλος/η</option>
-              <option value="payerAll">Μόνο για αυτόν που πλήρωσε</option>
-              <option value="custom">Προσαρμοσμένο</option>
-            </select>
-          </label>
-          {f.split === 'custom' && (
-            <input inputMode="decimal" placeholder="Πόσα αναλογούν στον/στην άλλο/η (€)" value={f.otherShare} onChange={(e) => setF({ ...f, otherShare: e.target.value })} />
+          <div className="row selects">
+            <label>Πλήρωσε
+              <select value={f.paidBy} onChange={(e) => setF({ ...f, paidBy: e.target.value })}>
+                <option value={me.uid}>{myName} (εγώ)</option>
+                {other && <option value={other.id}>{otherName}</option>}
+              </select>
+            </label>
+            <label>Διαίρεση
+              <select value={f.split} onChange={(e) => setF({ ...f, split: e.target.value })}>
+                <option value="equal">Μισά-μισά</option>
+                <option value="otherAll">Όλο στον άλλο</option>
+                <option value="payerAll">Μόνο πληρωτής</option>
+                {other && <option value="percent">Ποσοστό %</option>}
+                {other && <option value="amount">Ποσά €</option>}
+              </select>
+            </label>
+            <label>Κατηγορία
+              <select value={f.cat} onChange={(e) => setF({ ...f, cat: e.target.value })}>
+                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </label>
+          </div>
+          {other && f.split === 'percent' && (
+            <div className="row splitrow">
+              <label>{myName} %
+                <input inputMode="decimal" value={f.pMine} onChange={(e) => setPct(e.target.value, 'pMine', 'pOther')} />
+              </label>
+              <label>{otherName} %
+                <input inputMode="decimal" value={f.pOther} onChange={(e) => setPct(e.target.value, 'pOther', 'pMine')} />
+              </label>
+            </div>
           )}
-          <label>Κατηγορία
-            <select value={f.cat} onChange={(e) => setF({ ...f, cat: e.target.value })}>
-              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </label>
+          {other && f.split === 'amount' && (
+            <>
+              <div className="row splitrow">
+                <label>{myName} €
+                  <input inputMode="decimal" value={f.aMine} onChange={(e) => setF({ ...f, aMine: e.target.value })} />
+                </label>
+                <label>{otherName} €
+                  <input inputMode="decimal" value={f.aOther} onChange={(e) => setF({ ...f, aOther: e.target.value })} />
+                </label>
+                <label>Κοινά €
+                  <input inputMode="decimal" placeholder={eur(Math.max(rest, 0))} value={f.aCommon} onChange={(e) => setF({ ...f, aCommon: e.target.value })} />
+                </label>
+              </div>
+              {amountCents > 0 && (
+                <small className={rest === 0 || f.aCommon.trim() === '' && rest > 0 ? 'muted' : 'late'}>
+                  {f.aCommon.trim() === ''
+                    ? rest >= 0 ? `Κοινά (μισά-μισά): ${eur(rest)}` : `Τα ποσά ξεπερνούν το σύνολο κατά ${eur(-rest)}`
+                    : rest === 0 ? 'Τα ποσά συμφωνούν ✓' : `Διαφορά από το σύνολο: ${eur(rest)}`}
+                </small>
+              )}
+            </>
+          )}
           <div className="row">
             <button type="button" onClick={() => setOpen(false)}>Άκυρο</button>
             <button className="primary">Αποθήκευση</button>

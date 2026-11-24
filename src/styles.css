@@ -118,3 +118,9 @@ button.danger { background: var(--danger); border-color: var(--danger); color: #
 .like { padding: 6px; }
 
 button.bell { font-size: 20px; padding: 4px 8px; }
+
+.selects { align-items: flex-start; gap: 6px; }
+.selects label { flex: 1; min-width: 0; }
+.selects select { padding: 10px 4px 10px 8px; font-size: 14px; text-overflow: ellipsis; }
+.splitrow { align-items: flex-start; gap: 6px; }
+.splitrow label { flex: 1; min-width: 0; }
