@@ -124,3 +124,5 @@ button.bell { font-size: 20px; padding: 4px 8px; }
 .selects select { width: 68%; flex-shrink: 0; }
 .splitrow { align-items: flex-start; gap: 6px; }
 .splitrow label { flex: 1; min-width: 0; }
+.grow.tappable { cursor: pointer; }
+.list li.editing-row { background: color-mix(in srgb, var(--brand) 12%, transparent); }

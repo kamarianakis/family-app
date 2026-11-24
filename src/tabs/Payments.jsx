@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { addDoc, collection, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useCol } from '../hooks'
 import { eur, firstName, fmtDate, monthTitle, toCents, today } from '../utils'
@@ -33,7 +33,9 @@ export default function Payments({ me, users, byId }) {
   const [open, setOpen] = useState(false)
   const now = new Date()
   const [month, setMonth] = useState({ y: now.getFullYear(), m: now.getMonth() })
-  const [f, setF] = useState({ title: '', amount: '', paidBy: me.uid, split: 'equal', pMine: '50', pOther: '50', aMine: '', aOther: '', aCommon: '', cat: CATEGORIES[0], date: today() })
+  const blank = () => ({ title: '', amount: '', paidBy: me.uid, split: 'equal', pMine: '50', pOther: '50', aMine: '', aOther: '', aCommon: '', cat: CATEGORIES[0], date: today() })
+  const [f, setF] = useState(blank)
+  const [editId, setEditId] = useState(null) // id δαπάνης που επεξεργάζομαι
 
   const net = useMemo(() => balances(entries), [entries])
   const myNet = net[me.uid] || 0 // >0: μου χρωστάνε, <0: χρωστάω
@@ -92,19 +94,43 @@ export default function Payments({ me, users, byId }) {
       const half = Math.round(c / 2)
       shares = { [me.uid]: a + c - half, [other.id]: b + half }
     }
-    await addDoc(collection(db, 'expenses'), {
-      type: 'expense',
-      title: f.title.trim(),
-      amount,
-      paidBy: payer,
-      shares,
-      cat: f.cat,
-      date: f.date,
-      by: me.uid,
-      createdAt: serverTimestamp()
-    })
-    setF({ ...f, title: '', amount: '', pMine: '50', pOther: '50', aMine: '', aOther: '', aCommon: '' })
+    const data = { title: f.title.trim(), amount, paidBy: payer, shares, cat: f.cat, date: f.date }
+    if (editId) {
+      await updateDoc(doc(db, 'expenses', editId), data)
+    } else {
+      await addDoc(collection(db, 'expenses'), { type: 'expense', ...data, by: me.uid, createdAt: serverTimestamp() })
+    }
+    closeForm()
+  }
+
+  const closeForm = () => {
     setOpen(false)
+    setEditId(null)
+    setF(blank())
+  }
+
+  // Άνοιγμα φόρμας με τα στοιχεία μιας παλιάς δαπάνης
+  const startEdit = (e) => {
+    if (e.type === 'settlement') return
+    const c = (v) => (v / 100).toFixed(2)
+    const mine = e.shares?.[me.uid] || 0
+    const theirs = other ? e.shares?.[other.id] || 0 : 0
+    let split = 'equal'
+    const extra = {}
+    if (other && Math.abs(mine - theirs) > 1) {
+      if (mine === e.amount) split = 'onlyMe'
+      else if (theirs === e.amount) split = 'onlyOther'
+      else {
+        split = 'amount'
+        extra.aMine = c(mine)
+        extra.aOther = c(theirs)
+      }
+    }
+    setF({ ...blank(), title: e.title || '', amount: c(e.amount), paidBy: e.paidBy, split, cat: e.cat || CATEGORIES[0], date: e.date || today(), ...extra })
+    setEditId(e.id)
+    setOpen(true)
+    const main = document.querySelector('main')
+    if (main) main.scrollTop = 0
   }
 
   const settle = async () => {
@@ -144,9 +170,10 @@ export default function Payments({ me, users, byId }) {
         {other && myNet !== 0 && <button className="primary" onClick={settle}>Εξόφληση</button>}
       </div>
 
-      {!open && <button className="primary wide" onClick={() => { setF((x) => ({ ...x, paidBy: me.uid })); setOpen(true) }}>+ Νέα δαπάνη</button>}
+      {!open && <button className="primary wide" onClick={() => { setF(blank()); setEditId(null); setOpen(true) }}>+ Νέα δαπάνη</button>}
       {open && (
         <form className="card form" onSubmit={save}>
+          {editId && <strong>✎ Επεξεργασία δαπάνης</strong>}
           <input placeholder="Τι ήταν;" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} autoFocus />
           <div className="row">
             <input inputMode="decimal" placeholder="Ποσό €" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
@@ -207,7 +234,7 @@ export default function Payments({ me, users, byId }) {
             </>
           )}
           <div className="row">
-            <button type="button" onClick={() => setOpen(false)}>Άκυρο</button>
+            <button type="button" onClick={closeForm}>Άκυρο</button>
             <button className="primary">Αποθήκευση</button>
           </div>
         </form>
@@ -232,15 +259,15 @@ export default function Payments({ me, users, byId }) {
       {entries.length === 0 && <p className="empty">Καμία κίνηση ακόμα</p>}
       <ul className="list">
         {entries.slice(0, 60).map((e) => (
-          <li key={e.id}>
-            <div className="grow">
+          <li key={e.id} className={e.id === editId ? 'editing-row' : ''}>
+            <div className={`grow ${e.type === 'settlement' ? '' : 'tappable'}`} onClick={() => startEdit(e)}>
               <div>{e.type === 'settlement' ? '🤝 ' : ''}{e.title}</div>
               <small className="muted">
                 {fmtDate(e.date)} · {e.type === 'settlement' ? `${firstName(byId[e.paidBy])} → ${firstName(byId[Object.keys(e.shares)[0]])}` : `πλήρωσε ${firstName(byId[e.paidBy])}`}
                 {e.cat ? ` · ${e.cat}` : ''}
               </small>
             </div>
-            <strong>{eur(e.amount)}</strong>
+            <strong onClick={() => startEdit(e)}>{eur(e.amount)}</strong>
             <button className="ghost" onClick={() => remove(e)} aria-label="Διαγραφή">✕</button>
           </li>
         ))}
