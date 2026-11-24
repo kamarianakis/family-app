@@ -159,7 +159,7 @@ export default function Payments({ me, users, byId }) {
                 {other && <option value={other.id}>{otherName}</option>}
               </select>
             </label>
-            <label>Διαίρεση
+            <label>Για ποιον
               <select value={f.split} onChange={(e) => setF({ ...f, split: e.target.value })}>
                 <option value="equal">Μισά-μισά</option>
                 {other && <option value="onlyMe">Έξοδα {genitive(myName)}</option>}
