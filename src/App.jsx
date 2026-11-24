@@ -141,7 +141,11 @@ export default function App() {
         await enablePush(user.uid)
       }
     } catch (e) {
-      alert(e.message)
+      alert(
+        /push service error/i.test(e.message)
+          ? 'Αυτός ο browser δεν μπορεί να λάβει push ειδοποιήσεις (δεν έχει πρόσβαση στην υπηρεσία push της Google). Δοκίμασε από Chrome/Edge/Safari ή από την εγκατεστημένη εφαρμογή στο κινητό.'
+          : e.message
+      )
     }
     setPush(await pushStatus())
   }
