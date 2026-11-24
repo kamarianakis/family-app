@@ -34,6 +34,16 @@ export async function enablePush(uid) {
   const token = await fetchToken()
   if (!token) throw new Error('Δεν δημιουργήθηκε token ειδοποιήσεων.')
   await saveToken(uid, token)
+  // Δοκιμαστική ειδοποίηση: δείχνει ότι η συσκευή μπορεί να εμφανίσει ειδοποιήσεις
+  try {
+    const reg = await navigator.serviceWorker.ready
+    await reg.showNotification('Οικογένεια', {
+      body: 'Οι ειδοποιήσεις είναι ενεργές ✓',
+      icon: '/family-app/pwa-192x192.png'
+    })
+  } catch (e) {
+    console.warn('test notification', e)
+  }
 }
 
 export async function disablePush(uid) {
