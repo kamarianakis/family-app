@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Component, useEffect, useState } from 'react'
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -55,6 +55,33 @@ function Login({ error }) {
   )
 }
 
+// Αν κάποιο tab σπάσει, δείχνει το σφάλμα αντί για μαύρη οθόνη
+class ErrorBoundary extends Component {
+  state = { error: null }
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+  render() {
+    if (!this.state.error) return this.props.children
+    return (
+      <div className="login">
+        <div className="logo">⚠️</div>
+        <h1>Κάτι πήγε στραβά</h1>
+        <p className="error">{String(this.state.error?.message || this.state.error)}</p>
+        <button
+          className="primary"
+          onClick={() => {
+            this.setState({ error: null })
+            this.props.onReset()
+          }}
+        >
+          Πίσω στα Ψώνια
+        </button>
+      </div>
+    )
+  }
+}
+
 export default function App() {
   const [user, setUser] = useState(undefined) // undefined = φορτώνει
   const [denied, setDenied] = useState(false)
@@ -100,12 +127,18 @@ export default function App() {
     <div className="app">
       <header>
         <h2>{TABS.find((t) => t.id === tab).label}</h2>
-        <button className="ghost" onClick={() => signOut(auth)} title="Αποσύνδεση">
+        <button
+          className="ghost"
+          onClick={() => confirm(`Αποσύνδεση από το ${user.email};`) && signOut(auth)}
+          title="Αποσύνδεση"
+        >
           {user.photoURL ? <img src={user.photoURL} alt="" className="avatar" referrerPolicy="no-referrer" /> : '⎋'}
         </button>
       </header>
-      <main>
-        <Active me={user} users={users} byId={byId} />
+      <main className={tab === 'chat' ? 'chat-main' : ''}>
+        <ErrorBoundary key={tab} onReset={() => setTab('shopping')}>
+          <Active me={user} users={users} byId={byId} />
+        </ErrorBoundary>
       </main>
       <nav>
         {TABS.map((t) => (

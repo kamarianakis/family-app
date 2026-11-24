@@ -4,18 +4,33 @@ import { db } from '../firebase'
 import { useCol } from '../hooks'
 import { firstName } from '../utils'
 
-const hhmm = (ts) =>
-  ts?.toDate ? new Intl.DateTimeFormat('el-GR', { hour: '2-digit', minute: '2-digit' }).format(ts.toDate()) : ''
-const dayLabel = (ts) =>
-  ts?.toDate ? new Intl.DateTimeFormat('el-GR', { day: 'numeric', month: 'short' }).format(ts.toDate()) : ''
+const pad = (n) => String(n).padStart(2, '0')
+// Απλή μορφοποίηση χωρίς Intl, για να μη σπάει σε παλιούς browsers
+const toDate = (ts) => {
+  try {
+    return ts && typeof ts.toDate === 'function' ? ts.toDate() : null
+  } catch {
+    return null
+  }
+}
+const hhmm = (ts) => {
+  const d = toDate(ts)
+  return d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : ''
+}
+const dayLabel = (ts) => {
+  const d = toDate(ts)
+  return d ? `${d.getDate()}/${d.getMonth() + 1}` : ''
+}
 
 export default function Chat({ me, byId }) {
   const [msgs] = useCol('messages', ['createdAt', 'desc'], 100)
   const [text, setText] = useState('')
-  const end = useRef(null)
+  const box = useRef(null)
   const list = [...msgs].reverse()
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: 'smooth' }), [msgs.length])
+  useEffect(() => {
+    if (box.current) box.current.scrollTop = box.current.scrollHeight
+  }, [msgs.length])
 
   const send = async (e) => {
     e.preventDefault()
@@ -27,7 +42,7 @@ export default function Chat({ me, byId }) {
 
   return (
     <div className="chat">
-      <div className="msgs">
+      <div className="msgs" ref={box}>
         {list.length === 0 && <p className="empty">Γράψε το πρώτο μήνυμα 👋</p>}
         {list.map((m, i) => {
           const mine = m.by === me.uid
@@ -37,13 +52,12 @@ export default function Chat({ me, byId }) {
               {newDay && m.createdAt && <div className="day-sep">{dayLabel(m.createdAt)}</div>}
               <div className={`msg ${mine ? 'mine' : ''}`}>
                 {!mine && <small className="muted">{firstName(byId[m.by])}</small>}
-                <div className="bubble">{m.text}</div>
+                <div className="bubble">{String(m.text ?? '')}</div>
                 <small className="muted">{hhmm(m.createdAt)}</small>
               </div>
             </div>
           )
         })}
-        <div ref={end} />
       </div>
       <form className="row composer" onSubmit={send}>
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Μήνυμα…" />

@@ -114,7 +114,7 @@ export default function Payments({ me, users, byId }) {
         {other && myNet !== 0 && <button className="primary" onClick={settle}>Εξόφληση</button>}
       </div>
 
-      {!open && <button className="primary wide" onClick={() => setOpen(true)}>+ Νέα δαπάνη</button>}
+      {!open && <button className="primary wide" onClick={() => { setF((x) => ({ ...x, paidBy: me.uid })); setOpen(true) }}>+ Νέα δαπάνη</button>}
       {open && (
         <form className="card form" onSubmit={save}>
           <input placeholder="Τι ήταν;" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} autoFocus />
@@ -122,12 +122,9 @@ export default function Payments({ me, users, byId }) {
             <input inputMode="decimal" placeholder="Ποσό €" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
             <input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
           </div>
-          <select value={f.cat} onChange={(e) => setF({ ...f, cat: e.target.value })}>
-            {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-          </select>
           <label>Πλήρωσε
             <select value={f.paidBy} onChange={(e) => setF({ ...f, paidBy: e.target.value })}>
-              <option value={me.uid}>Εγώ</option>
+              <option value={me.uid}>{firstName(byId[me.uid]) || 'Εγώ'} (εγώ)</option>
               {other && <option value={other.id}>{firstName(other)}</option>}
             </select>
           </label>
@@ -142,6 +139,11 @@ export default function Payments({ me, users, byId }) {
           {f.split === 'custom' && (
             <input inputMode="decimal" placeholder="Πόσα αναλογούν στον/στην άλλο/η (€)" value={f.otherShare} onChange={(e) => setF({ ...f, otherShare: e.target.value })} />
           )}
+          <label>Κατηγορία
+            <select value={f.cat} onChange={(e) => setF({ ...f, cat: e.target.value })}>
+              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </label>
           <div className="row">
             <button type="button" onClick={() => setOpen(false)}>Άκυρο</button>
             <button className="primary">Αποθήκευση</button>
