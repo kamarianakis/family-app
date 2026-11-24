@@ -9,7 +9,7 @@ import {
 import { doc, setDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from './firebase'
 import { useCol } from './hooks'
-import { diagnose, disablePush, enablePush, pushStatus, refreshPush } from './push'
+import { disablePush, enablePush, pushStatus, refreshPush } from './push'
 import Shopping from './tabs/Shopping'
 import Bills from './tabs/Bills'
 import Payments from './tabs/Payments'
@@ -111,7 +111,13 @@ export default function App() {
     })
   }, [])
 
-  useEffect(() => localStorage.setItem('tab', tab), [tab])
+  useEffect(() => {
+    localStorage.setItem('tab', tab)
+    // Το #chat στη διεύθυνση δείχνει στο service worker ότι βλέπεις το chat
+    try {
+      history.replaceState(null, '', tab === 'chat' ? '#chat' : location.pathname + location.search)
+    } catch (e) {}
+  }, [tab])
 
   // Πάτημα σε ειδοποίηση -> άνοιγμα του chat
   useEffect(() => {
@@ -169,7 +175,6 @@ export default function App() {
       <header>
         <h2>{TABS.find((t) => t.id === tab).label}</h2>
         <div className="row">
-        <button className="ghost bell" onClick={async () => alert(await diagnose(user.uid))} title="Διάγνωση ειδοποιήσεων">ℹ️</button>
         <button className="ghost bell" onClick={togglePush} title="Ειδοποιήσεις">
           {push === 'on' ? '🔔' : '🔕'}
         </button>
