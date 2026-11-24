@@ -9,7 +9,7 @@ import {
 import { doc, setDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from './firebase'
 import { useCol } from './hooks'
-import { disablePush, enablePush, pushStatus, refreshPush } from './push'
+import { diagnose, disablePush, enablePush, pushStatus, refreshPush } from './push'
 import Shopping from './tabs/Shopping'
 import Bills from './tabs/Bills'
 import Payments from './tabs/Payments'
@@ -169,6 +169,7 @@ export default function App() {
       <header>
         <h2>{TABS.find((t) => t.id === tab).label}</h2>
         <div className="row">
+        <button className="ghost bell" onClick={async () => alert(await diagnose(user.uid))} title="Διάγνωση ειδοποιήσεων">ℹ️</button>
         <button className="ghost bell" onClick={togglePush} title="Ειδοποιήσεις">
           {push === 'on' ? '🔔' : '🔕'}
         </button>

@@ -1,4 +1,4 @@
-import { arrayRemove, arrayUnion, doc, setDoc } from 'firebase/firestore'
+import { arrayRemove, arrayUnion, doc, getDoc, setDoc } from 'firebase/firestore'
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging'
 import { app, db } from './firebase'
 
@@ -64,4 +64,45 @@ export async function refreshPush(uid) {
   } catch (e) {
     console.warn('push refresh', e)
   }
+}
+
+// Κείμενο διάγνωσης για να δούμε τι συμβαίνει στη συσκευή
+export async function diagnose(uid) {
+  const out = []
+  out.push(`Άδεια: ${'Notification' in window ? Notification.permission : 'n/a'}`)
+  out.push(`Εγκατεστημένη (standalone): ${navigator.standalone === true || matchMedia('(display-mode: standalone)').matches ? 'ναι' : 'όχι'}`)
+  const tok = localStorage.getItem(KEY)
+  out.push(`Token εδώ: ${tok ? '…' + tok.slice(-8) : 'κανένα'}`)
+  try {
+    const snap = await getDoc(doc(db, 'users', uid))
+    const toks = snap.data()?.tokens || []
+    out.push(`Tokens στη βάση: ${toks.length}${tok ? (toks.includes(tok) ? ' (το δικό μου υπάρχει)' : ' (το δικό μου ΔΕΝ υπάρχει)') : ''}`)
+  } catch (e) {
+    out.push('Tokens στη βάση: σφάλμα ' + e.message)
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    out.push(`Push subscription: ${sub ? 'ναι' : 'ΟΧΙ'}`)
+    const pong = await new Promise((resolve) => {
+      const t = setTimeout(() => resolve(null), 2000)
+      const h = (e) => {
+        if (e.data?.type === 'pong') {
+          clearTimeout(t)
+          navigator.serviceWorker.removeEventListener('message', h)
+          resolve(e.data)
+        }
+      }
+      navigator.serviceWorker.addEventListener('message', h)
+      reg.active?.postMessage('ping')
+    })
+    if (!pong) out.push('Service worker: δεν απάντησε (παλιά έκδοση;)')
+    else {
+      out.push(`Service worker: έκδοση ${pong.v}`)
+      out.push(pong.last ? `Τελευταίο push: ${new Date(pong.last.t).toLocaleString('el-GR')} «${pong.last.body}»` : 'Τελευταίο push: δεν έχει έρθει κανένα')
+    }
+  } catch (e) {
+    out.push('SW σφάλμα: ' + e.message)
+  }
+  return out.join('\n')
 }
