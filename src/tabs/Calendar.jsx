@@ -2,9 +2,33 @@ import { useState } from 'react'
 import { addDoc, collection, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useCol } from '../hooks'
-import { eur, firstName, fmtDayLong, monthTitle, today, ymd } from '../utils'
+import { eur, firstName, fmtDayLong, monthTitle, parseYmd, today, ymd } from '../utils'
 
 const DOW = ['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ']
+const REPEATS = [
+  ['', 'Δεν επαναλαμβάνεται'],
+  ['daily', 'Κάθε μέρα'],
+  ['weekly', 'Κάθε εβδομάδα'],
+  ['monthly', 'Κάθε μήνα'],
+  ['yearly', 'Κάθε χρόνο']
+]
+const REPEAT_LABEL = Object.fromEntries(REPEATS)
+
+// Πέφτει το event (με επανάληψη) στην ημέρα d (yyyy-mm-dd);
+function occursOn(ev, d) {
+  if (ev.date === d) return true
+  if (!ev.repeat || d < ev.date) return false
+  const s = parseYmd(ev.date)
+  const t = parseYmd(d)
+  if (ev.repeat === 'daily') return true
+  if (ev.repeat === 'weekly') return Math.round((t - s) / 86400000) % 7 === 0
+  // μήνας/χρόνος: αν ο μήνας δεν έχει π.χ. 31, πέφτει στην τελευταία μέρα του μήνα
+  const lastDay = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()
+  if (t.getDate() !== Math.min(s.getDate(), lastDay)) return false
+  if (ev.repeat === 'monthly') return true
+  if (ev.repeat === 'yearly') return t.getMonth() === s.getMonth()
+  return false
+}
 
 export default function Calendar({ me, byId }) {
   const [events] = useCol('events', ['date', 'asc'], 1000)
@@ -14,13 +38,14 @@ export default function Calendar({ me, byId }) {
   const [sel, setSel] = useState(today())
   const [title, setTitle] = useState('')
   const [time, setTime] = useState('')
+  const [repeat, setRepeat] = useState('')
 
   const first = new Date(view.y, view.m, 1)
   const offset = (first.getDay() + 6) % 7 // Δευτέρα πρώτη
   const days = new Date(view.y, view.m + 1, 0).getDate()
   const cells = [...Array(offset).fill(null), ...Array.from({ length: days }, (_, i) => ymd(new Date(view.y, view.m, i + 1)))]
 
-  const evOn = (d) => events.filter((e) => e.date === d)
+  const evOn = (d) => events.filter((e) => occursOn(e, d))
   const billOn = (d) => bills.filter((b) => b.due === d && !b.paid)
 
   const shift = (d) => {
@@ -34,13 +59,17 @@ export default function Calendar({ me, byId }) {
       title: title.trim(),
       date: sel,
       time,
+      repeat,
       by: me.uid,
       createdAt: serverTimestamp()
     })
     setTitle('')
     setTime('')
+    setRepeat('')
   }
-  const remove = (ev) => confirm(`Διαγραφή «${ev.title}»;`) && deleteDoc(doc(db, 'events', ev.id))
+  const remove = (ev) =>
+    confirm(ev.repeat ? `Διαγραφή «${ev.title}» (όλες οι επαναλήψεις);` : `Διαγραφή «${ev.title}»;`) &&
+    deleteDoc(doc(db, 'events', ev.id))
 
   const dayEvents = evOn(sel).sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   const dayBills = billOn(sel)
@@ -75,10 +104,15 @@ export default function Calendar({ me, byId }) {
       </div>
 
       <div className="section-head"><h3>{fmtDayLong(sel)}</h3></div>
-      <form className="row" onSubmit={add}>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Νέο γεγονός…" />
-        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="time" />
-        <button className="primary">+</button>
+      <form className="evform" onSubmit={add}>
+        <div className="row">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Νέο γεγονός…" />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="time" />
+          <button className="primary">+</button>
+        </div>
+        <select value={repeat} onChange={(e) => setRepeat(e.target.value)}>
+          {REPEATS.map(([v, l]) => <option key={v} value={v}>{l === 'Δεν επαναλαμβάνεται' ? '↻ ' + l : l}</option>)}
+        </select>
       </form>
       {dayEvents.length === 0 && dayBills.length === 0 && <p className="empty">Τίποτα προγραμματισμένο</p>}
       <ul className="list">
@@ -94,7 +128,7 @@ export default function Calendar({ me, byId }) {
             <span className="time-tag">{ev.time || '—'}</span>
             <div className="grow">
               <div>{ev.title}</div>
-              <small className="muted">{firstName(byId[ev.by])}</small>
+              <small className="muted">{firstName(byId[ev.by])}{ev.repeat ? ` · ↻ ${REPEAT_LABEL[ev.repeat]?.toLowerCase()}` : ''}</small>
             </div>
             <button className="ghost" onClick={() => remove(ev)} aria-label="Διαγραφή">✕</button>
           </li>
