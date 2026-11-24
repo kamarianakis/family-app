@@ -17,6 +17,16 @@ function balances(entries) {
   return net
 }
 
+// Γενική του μικρού ονόματος: Μάνος -> Μάνου, Ελεάνα -> Ελεάνας (λατινικά: αμετάβλητο)
+function genitive(n) {
+  if (!/[Α-Ωα-ωά-ώ]/.test(n)) return n
+  if (/ος$/.test(n)) return n.slice(0, -2) + 'ου'
+  if (/ης$/.test(n)) return n.slice(0, -1)
+  if (/ας$/.test(n)) return n.slice(0, -1)
+  if (/[αη]$/.test(n)) return n + 'ς'
+  return n
+}
+
 export default function Payments({ me, users, byId }) {
   const [entries] = useCol('expenses', ['date', 'desc'], 500)
   const other = users.find((u) => u.id !== me.uid)
@@ -64,10 +74,10 @@ export default function Payments({ me, users, byId }) {
     } else if (f.split === 'equal') {
       const half = Math.round(amount / 2)
       shares = { [payer]: amount - half, [otherId]: half }
-    } else if (f.split === 'otherAll') {
-      shares = { [otherId]: amount }
-    } else if (f.split === 'payerAll') {
-      shares = { [payer]: amount }
+    } else if (f.split === 'onlyMe') {
+      shares = { [me.uid]: amount }
+    } else if (f.split === 'onlyOther') {
+      shares = { [other.id]: amount }
     } else if (f.split === 'percent') {
       const p = parseFloat(String(f.pMine).replace(',', '.'))
       if (!(p >= 0 && p <= 100)) return alert('Το ποσοστό πρέπει να είναι από 0 έως 100.')
@@ -152,8 +162,8 @@ export default function Payments({ me, users, byId }) {
             <label>Διαίρεση
               <select value={f.split} onChange={(e) => setF({ ...f, split: e.target.value })}>
                 <option value="equal">Μισά-μισά</option>
-                <option value="otherAll">Όλο στον άλλο</option>
-                <option value="payerAll">Μόνο πληρωτής</option>
+                {other && <option value="onlyMe">Έξοδα {genitive(myName)}</option>}
+                {other && <option value="onlyOther">Έξοδα {genitive(otherName)}</option>}
                 {other && <option value="percent">Ποσοστό %</option>}
                 {other && <option value="amount">Ποσά €</option>}
               </select>
