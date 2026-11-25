@@ -6,7 +6,7 @@ import {
   getRedirectResult,
   signOut
 } from 'firebase/auth'
-import { doc, setDoc } from 'firebase/firestore'
+import { doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from './firebase'
 import { useCol } from './hooks'
 import { disablePush, enablePush, pushStatus, refreshPush } from './push'
@@ -90,7 +90,9 @@ export default function App() {
     location.hash === '#chat' ? 'chat' : localStorage.getItem('tab') || 'shopping'
   )
   const [push, setPush] = useState('off')
-  const [users] = useCol('users')
+  const [users, usersReady] = useCol('users')
+  const [msgs] = useCol('messages', ['createdAt', 'desc'], 100)
+  const [visible, setVisible] = useState(document.visibilityState === 'visible')
 
   useEffect(() => {
     getRedirectResult(auth).catch(() => {})
@@ -109,6 +111,12 @@ export default function App() {
         }
       }
     })
+  }, [])
+
+  useEffect(() => {
+    const onVis = () => setVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
   }, [])
 
   useEffect(() => {
@@ -156,6 +164,30 @@ export default function App() {
     setPush(await pushStatus())
   }
 
+  // Αδιάβαστα: μηνύματα του άλλου μετά την τελευταία φορά που είδα το chat (αποθηκεύεται στο προφίλ μου)
+  const myDoc = user ? users.find((u) => u.id === user.uid) : null
+  const seenAt = myDoc?.chatSeenAt?.toMillis ? myDoc.chatSeenAt.toMillis() : 0
+  const unread = !user || !myDoc?.chatSeenAt
+    ? 0
+    : msgs.filter((m) => m.by !== user.uid && m.createdAt?.toMillis && m.createdAt.toMillis() > seenAt).length
+
+  useEffect(() => {
+    if (!user || !usersReady || !myDoc) return
+    // πρώτη φορά: όσα υπάρχουν ήδη θεωρούνται διαβασμένα· μετά, όσο βλέπω το chat
+    if (!myDoc.chatSeenAt || (tab === 'chat' && visible && unread > 0)) {
+      updateDoc(doc(db, 'users', user.uid), { chatSeenAt: serverTimestamp() }).catch(() => {})
+    }
+  }, [user, usersReady, myDoc?.chatSeenAt, tab, visible, unread])
+
+  // Badge στο εικονίδιο της εφαρμογής (iOS/Android όταν υποστηρίζεται)
+  useEffect(() => {
+    try {
+      caches.open('badge').then((c) => c.put('count', new Response(String(unread))))
+      if (unread > 0) navigator.setAppBadge?.(unread)
+      else navigator.clearAppBadge?.()
+    } catch (e) {}
+  }, [unread])
+
   if (user === undefined) return <div className="center">Φόρτωση…</div>
   if (!user) return <Login />
   if (denied)
@@ -197,6 +229,7 @@ export default function App() {
           <button key={t.id} className={t.id === tab ? 'active' : ''} onClick={() => setTab(t.id)}>
             <span>{t.icon}</span>
             {t.label}
+            {t.id === 'chat' && unread > 0 && <i className="badge">{unread > 99 ? '99+' : unread}</i>}
           </button>
         ))}
       </nav>

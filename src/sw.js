@@ -26,6 +26,14 @@ self.addEventListener('push', (event) => {
       // Αν βλέπεις ήδη το chat (εφαρμογή μπροστά, tab Chat), δεν χρειάζεται ειδοποίηση
       const wins = await clients.matchAll({ type: 'window', includeUncontrolled: true })
       if (wins.some((w) => w.visibilityState === 'visible' && w.focused && w.url.includes('#chat'))) return
+      // Badge στο εικονίδιο: +1 για κάθε ειδοποίηση (η εφαρμογή το μηδενίζει/ρυθμίζει όταν ανοίξει)
+      try {
+        const cache = await caches.open('badge')
+        const r = await cache.match('count')
+        const n = (r ? parseInt(await r.text(), 10) || 0 : 0) + 1
+        await cache.put('count', new Response(String(n)))
+        if (self.navigator.setAppBadge) await self.navigator.setAppBadge(n)
+      } catch (e) {}
       await self.registration.showNotification(title, {
         body,
         icon: '/family-app/pwa-192x192.png',
