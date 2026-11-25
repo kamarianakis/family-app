@@ -16,20 +16,37 @@ export async function pushStatus() {
   return 'off'
 }
 
+// Τρέχει ένα βήμα με χρονικό όριο και μήνυμα που λέει ποιο βήμα απέτυχε
+function step(label, promise, ms = 15000) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label}: δεν απάντησε σε ${ms / 1000}"`)), ms)
+    Promise.resolve(promise).then(
+      (v) => {
+        clearTimeout(t)
+        resolve(v)
+      },
+      (e) => {
+        clearTimeout(t)
+        reject(new Error(`${label}: ${e?.code || ''} ${e?.message || e}`.trim()))
+      }
+    )
+  })
+}
+
 async function fetchToken() {
-  const reg = await navigator.serviceWorker.ready
+  const reg = await step('Service worker', navigator.serviceWorker.ready, 8000)
   // Χωρίς vapidKey, το Firebase χρησιμοποιεί το προεπιλεγμένο κλειδί του project
-  return getToken(getMessaging(app), { serviceWorkerRegistration: reg })
+  return step('Token ειδοποιήσεων', getToken(getMessaging(app), { serviceWorkerRegistration: reg }))
 }
 
 async function saveToken(uid, token) {
-  await setDoc(doc(db, 'users', uid), { tokens: arrayUnion(token) }, { merge: true })
+  await step('Αποθήκευση', setDoc(doc(db, 'users', uid), { tokens: arrayUnion(token) }, { merge: true }))
   localStorage.setItem(KEY, token)
 }
 
 // Πρέπει να κληθεί από πάτημα κουμπιού (απαίτηση του iOS)
 export async function enablePush(uid) {
-  const perm = await Notification.requestPermission()
+  const perm = await step('Άδεια', Notification.requestPermission(), 60000)
   if (perm !== 'granted') throw new Error('Δεν δόθηκε άδεια για ειδοποιήσεις.')
   const token = await fetchToken()
   if (!token) throw new Error('Δεν δημιουργήθηκε token ειδοποιήσεων.')
