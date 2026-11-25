@@ -90,8 +90,9 @@ export default function App() {
     location.hash === '#chat' ? 'chat' : localStorage.getItem('tab') || 'shopping'
   )
   const [push, setPush] = useState('off')
-  const [users, usersReady] = useCol('users')
-  const [msgs] = useCol('messages', ['createdAt', 'desc'], 100)
+  const signedIn = !!user && !denied
+  const [users, usersReady] = useCol('users', undefined, undefined, signedIn)
+  const [msgs] = useCol('messages', ['createdAt', 'desc'], 100, signedIn)
   const [visible, setVisible] = useState(document.visibilityState === 'visible')
 
   useEffect(() => {
@@ -201,6 +202,8 @@ export default function App() {
     )
 
   const byId = Object.fromEntries(users.map((u) => [u.id, u]))
+  // το δικό μου όνομα το ξέρω πάντα από το login, ακόμα κι αν η λίστα χρηστών δεν έχει φορτώσει
+  if (!byId[user.uid]) byId[user.uid] = { id: user.uid, name: user.displayName, email: user.email }
   const Active = TABS.find((t) => t.id === tab).C
   return (
     <div className="app">
