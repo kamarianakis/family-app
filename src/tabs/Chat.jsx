@@ -35,13 +35,22 @@ function Heart({ on, size = 18 }) {
   )
 }
 
-export default function Chat({ me, byId }) {
+export default function Chat({ me, users = [], byId }) {
   const [msgs] = useCol('messages', ['createdAt', 'desc'], 100)
   const [text, setText] = useState('')
   const [menu, setMenu] = useState(null) // id μηνύματος με ανοιχτό μενού
   const [editing, setEditing] = useState(null) // μήνυμα που επεξεργάζομαι
   const box = useRef(null)
   const list = [...msgs].reverse()
+  // Πότε είδε ο άλλος το chat τελευταία φορά (για τα ✓✓)
+  const other = users.find((u) => u.id !== me.uid)
+  const otherSeen = other?.chatSeenAt?.toMillis ? other.chatSeenAt.toMillis() : 0
+  // 🕓 στέλνεται · ✓ στάλθηκε · ✓✓ διαβάστηκε
+  const status = (m) => {
+    if (!m.createdAt?.toMillis) return { icon: '🕓', cls: 'pending', label: 'Αποστέλλεται' }
+    if (otherSeen >= m.createdAt.toMillis()) return { icon: '✓✓', cls: 'read', label: 'Διαβάστηκε' }
+    return { icon: '✓', cls: 'sent', label: 'Στάλθηκε' }
+  }
 
   useEffect(() => {
     if (box.current) box.current.scrollTop = box.current.scrollHeight
@@ -125,6 +134,10 @@ export default function Chat({ me, byId }) {
                     {hhmm(m.createdAt)}
                     {m.edited ? ' · επεξεργάστηκε' : ''}
                   </small>
+                  {mine && (() => {
+                    const st = status(m)
+                    return <span className={`tick ${st.cls}`} title={st.label} aria-label={st.label}>{st.icon}</span>
+                  })()}
                 </div>
               </div>
             </div>
