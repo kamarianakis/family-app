@@ -33,8 +33,37 @@ function step(label, promise, ms = 15000) {
   })
 }
 
+const waitReady = (ms) =>
+  Promise.race([navigator.serviceWorker.ready, new Promise((resolve) => setTimeout(() => resolve(null), ms))])
+
+// Επιστρέφει ενεργό service worker· αν κόλλησε/χάλασε, τον ξαναεγγράφει από την αρχή
+async function getReg() {
+  let reg = await waitReady(4000)
+  if (reg) return reg
+  const regs = await navigator.serviceWorker.getRegistrations()
+  await Promise.all(regs.map((r) => r.unregister().catch(() => {})))
+  const fresh = await navigator.serviceWorker.register('/family-app/sw.js', { scope: '/family-app/' })
+  // περιμένουμε να γίνει ενεργός
+  await new Promise((resolve, reject) => {
+    const sw = fresh.installing || fresh.waiting || fresh.active
+    if (!sw) return reject(new Error('δεν δημιουργήθηκε worker'))
+    if (sw.state === 'activated') return resolve()
+    const t = setTimeout(() => reject(new Error(`ο worker έμεινε σε κατάσταση «${sw.state}»`)), 20000)
+    sw.addEventListener('statechange', () => {
+      if (sw.state === 'activated') {
+        clearTimeout(t)
+        resolve()
+      } else if (sw.state === 'redundant') {
+        clearTimeout(t)
+        reject(new Error('η εγκατάσταση του worker απέτυχε (redundant)'))
+      }
+    })
+  })
+  return fresh
+}
+
 async function fetchToken() {
-  const reg = await step('Service worker', navigator.serviceWorker.ready, 8000)
+  const reg = await step('Service worker', getReg(), 30000)
   // Χωρίς vapidKey, το Firebase χρησιμοποιεί το προεπιλεγμένο κλειδί του project
   return step('Token ειδοποιήσεων', getToken(getMessaging(app), { serviceWorkerRegistration: reg }))
 }
@@ -53,7 +82,7 @@ export async function enablePush(uid) {
   await saveToken(uid, token)
   // Δοκιμαστική ειδοποίηση: δείχνει ότι η συσκευή μπορεί να εμφανίσει ειδοποιήσεις
   try {
-    const reg = await navigator.serviceWorker.ready
+    const reg = await getReg()
     await reg.showNotification('MyFamilyApp', {
       body: 'Οι ειδοποιήσεις είναι ενεργές ✓',
       icon: '/family-app/pwa-192x192.png'
