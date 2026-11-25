@@ -15,7 +15,8 @@ export function useCol(name, order, max) {
       query(collection(db, name), ...cons),
       (snap) => {
         setDocs(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-        setReady(true)
+        // ready = ήρθαν δεδομένα από τον server (όχι μόνο από την τοπική μνήμη, που σε νέα εγκατάσταση έχει μόνο ό,τι γράψαμε εμείς)
+        setReady(!snap.metadata.fromCache)
       },
       (err) => console.error(name, err)
     )

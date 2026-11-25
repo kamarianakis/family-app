@@ -27,7 +27,7 @@ function genitive(n) {
   return n
 }
 
-export default function Payments({ me, users, byId }) {
+export default function Payments({ me, users, usersReady, byId }) {
   const [entries] = useCol('expenses', ['date', 'desc'], 500)
   const other = users.find((u) => u.id !== me.uid)
   const [open, setOpen] = useState(false)
@@ -166,7 +166,9 @@ export default function Payments({ me, users, byId }) {
   const remove = (e) => confirm(`Διαγραφή «${e.title}»;`) && deleteDoc(doc(db, 'expenses', e.id))
 
   const label = !other
-    ? 'Περιμένουμε τον/την σύντροφο να συνδεθεί'
+    ? usersReady
+      ? 'Περιμένουμε τον/την σύντροφο να συνδεθεί'
+      : 'Φόρτωση…'
     : myNet === 0
     ? 'Είστε πάτσι ✅'
     : myNet > 0

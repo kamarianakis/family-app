@@ -221,7 +221,7 @@ export default function App() {
       </header>
       <main className={tab === 'chat' ? 'chat-main' : ''}>
         <ErrorBoundary key={tab} onReset={() => setTab('shopping')}>
-          <Active me={user} users={users} byId={byId} />
+          <Active me={user} users={users} usersReady={usersReady} byId={byId} />
         </ErrorBoundary>
       </main>
       <nav>
