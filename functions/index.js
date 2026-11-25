@@ -15,7 +15,7 @@ export const notifyChat = onDocumentCreated(
 
     const users = await db.collection('users').get()
     const sender = users.docs.find((d) => d.id === msg.by)?.data()
-    const senderName = (sender?.name || sender?.email || 'Οικογένεια').split(' ')[0]
+    const senderName = (sender?.name || sender?.email || 'MyFamilyApp').split(' ')[0]
 
     const targets = [] // { uid, token }
     users.docs.forEach((d) => {

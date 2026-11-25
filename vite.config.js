@@ -14,8 +14,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'Οικογένεια',
-        short_name: 'Οικογένεια',
+        name: 'MyFamilyApp',
+        short_name: 'MyFamilyApp',
         description: 'Ψώνια, λογαριασμοί, πληρωμές, ημερολόγιο και chat',
         lang: 'el',
         theme_color: '#0f766e',

@@ -46,7 +46,7 @@ function Login({ error }) {
   return (
     <div className="login">
       <div className="logo">🏠</div>
-      <h1>Οικογένεια</h1>
+      <h1>MyFamilyApp</h1>
       <p>Ψώνια, λογαριασμοί, πληρωμές, ημερολόγιο και chat — μόνο για εμάς.</p>
       <button className="primary big" onClick={go} disabled={busy}>
         {busy ? 'Σύνδεση…' : 'Σύνδεση με Google'}
@@ -148,7 +148,7 @@ export default function App() {
       } else if (push === 'needs-install') {
         return alert('Στο iPhone, πρώτα πρόσθεσε την εφαρμογή στην Αρχική οθόνη (Κοινοποίηση → Προσθήκη στην Αρχική οθόνη) και άνοιξέ την από εκεί.')
       } else if (push === 'denied') {
-        return alert('Οι ειδοποιήσεις είναι μπλοκαρισμένες για αυτή την εφαρμογή. Κινητό: Ρυθμίσεις → Ειδοποιήσεις → Οικογένεια. Mac: Ρυθμίσεις Συστήματος → Ειδοποιήσεις → Οικογένεια (ή Safari → Ρυθμίσεις → Ιστοσελίδες → Ειδοποιήσεις).')
+        return alert('Οι ειδοποιήσεις είναι μπλοκαρισμένες για αυτή την εφαρμογή. Κινητό: Ρυθμίσεις → Ειδοποιήσεις → MyFamilyApp. Mac: Ρυθμίσεις Συστήματος → Ειδοποιήσεις → MyFamilyApp (ή Safari → Ρυθμίσεις → Ιστοσελίδες → Ειδοποιήσεις).')
       } else if (push === 'unsupported') {
         return alert('Αυτός ο browser δεν υποστηρίζει ειδοποιήσεις.')
       } else {

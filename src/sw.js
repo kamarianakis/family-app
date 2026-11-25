@@ -19,7 +19,7 @@ self.addEventListener('push', (event) => {
   }
   const d = p.data || p
   const n = p.notification || {}
-  const title = d.title || n.title || 'Οικογένεια'
+  const title = d.title || n.title || 'MyFamilyApp'
   const body = d.body || n.body || ''
   event.waitUntil(
     (async () => {

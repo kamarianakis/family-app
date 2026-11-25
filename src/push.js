@@ -37,7 +37,7 @@ export async function enablePush(uid) {
   // Δοκιμαστική ειδοποίηση: δείχνει ότι η συσκευή μπορεί να εμφανίσει ειδοποιήσεις
   try {
     const reg = await navigator.serviceWorker.ready
-    await reg.showNotification('Οικογένεια', {
+    await reg.showNotification('MyFamilyApp', {
       body: 'Οι ειδοποιήσεις είναι ενεργές ✓',
       icon: '/family-app/pwa-192x192.png'
     })
