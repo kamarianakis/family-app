@@ -133,3 +133,6 @@ nav button { position: relative; }
 .tick { font-size: 12px; line-height: 1; letter-spacing: -2px; color: var(--muted); }
 .tick.read { color: #3b82f6; }
 .tick.pending { letter-spacing: 0; font-size: 11px; }
+
+.bubble .chat-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+.msg:not(.mine) .bubble .chat-link { color: var(--brand); }

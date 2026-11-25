@@ -22,6 +22,29 @@ const dayLabel = (ts) => {
   return d ? `${d.getDate()}/${d.getMonth() + 1}` : ''
 }
 
+// Κάνει τα http(s):// και www. σύνδεσμα πατήσιμα (μόνο http/https, ποτέ javascript:)
+const URL_RE = /((?:https?:\/\/|www\.)[^\s<>"']+)/gi
+function linkify(text) {
+  return String(text ?? '')
+    .split(URL_RE)
+    .map((part, i) => {
+      if (i % 2 === 0) return part
+      // τελικά σημεία στίξης δεν ανήκουν στον σύνδεσμο
+      const m = part.match(/^(.*?)([).,;:!?]*)$/)
+      const url = m[1]
+      const tail = m[2]
+      const href = /^https?:\/\//i.test(url) ? url : `https://${url}`
+      return (
+        <span key={i}>
+          <a href={href} target="_blank" rel="noopener noreferrer" className="chat-link" onClick={(e) => e.stopPropagation()}>
+            {url}
+          </a>
+          {tail}
+        </span>
+      )
+    })
+}
+
 // Καρδιά με μια τελεία στη μέση. Γεμάτη όταν έχει γίνει like.
 function Heart({ on, size = 18 }) {
   return (
@@ -115,7 +138,7 @@ export default function Chat({ me, users = [], byId }) {
                     className={`bubble ${mine ? 'tappable' : ''}`}
                     onClick={() => mine && setMenu(menu === m.id ? null : m.id)}
                   >
-                    {String(m.text ?? '')}
+                    {linkify(m.text)}
                   </div>
                   {!mine && (
                     <button className={`like ${liked ? 'on' : ''}`} onClick={() => toggleLike(m)} aria-label="Like">
