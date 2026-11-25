@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addDoc, arrayUnion, collection, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { addDoc, arrayUnion, collection, deleteDoc, deleteField, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useCol } from '../hooks'
 import { addMonths, eur, firstName, fmtDate, fmtDayLong, monthTitle, parseYmd, today, ymd } from '../utils'
@@ -76,6 +76,8 @@ export default function Calendar({ me, byId }) {
   const [endType, setEndType] = useState('never') // never | count | until
   const [count, setCount] = useState('10')
   const [untilDate, setUntilDate] = useState('')
+  const [editId, setEditId] = useState(null) // γεγονός που επεξεργάζομαι
+  const [editDate, setEditDate] = useState('')
   const [del, setDel] = useState(null) // εμφάνιση προς διαγραφή {ev, date}
 
   const first = new Date(view.y, view.m, 1)
@@ -90,32 +92,56 @@ export default function Calendar({ me, byId }) {
     const t = new Date(view.y, view.m + d, 1)
     setView({ y: t.getFullYear(), m: t.getMonth() })
   }
+  const resetForm = () => {
+    setTitle('')
+    setTime('')
+    setRepeat('')
+    setEndType('never')
+    setUntilDate('')
+    setEditId(null)
+  }
   const add = async (e) => {
     e.preventDefault()
     if (!title.trim()) return
     const t24 = parseTime(time)
     if (t24 === null) return alert('Η ώρα δεν είναι σωστή. Γράψε π.χ. 1730 για 17:30.')
+    const date = editId ? editDate || sel : sel
     let until = null
-    if (repeat && endType === 'count') until = untilFromCount(sel, repeat, parseInt(count, 10) || 1)
+    if (repeat && endType === 'count') until = untilFromCount(date, repeat, parseInt(count, 10) || 1)
     if (repeat && endType === 'until') {
-      if (!untilDate || untilDate < sel) return alert('Η ημερομηνία λήξης πρέπει να είναι μετά την έναρξη.')
+      if (!untilDate || untilDate < date) return alert('Η ημερομηνία λήξης πρέπει να είναι μετά την έναρξη.')
       until = untilDate
     }
-    await addDoc(collection(db, 'events'), {
-      title: title.trim(),
-      date: sel,
-      time: t24,
-      repeat,
-      ...(until ? { until } : {}),
-      by: me.uid,
-      createdAt: serverTimestamp()
-    })
-    setTitle('')
-    setTime('')
-    setRepeat('')
-    setEndType('never')
+    const data = { title: title.trim(), date, time: t24, repeat }
+    if (editId) {
+      await updateDoc(doc(db, 'events', editId), { ...data, until: until || deleteField() })
+      const d = parseYmd(date)
+      setView({ y: d.getFullYear(), m: d.getMonth() })
+      setSel(date)
+    } else {
+      await addDoc(collection(db, 'events'), {
+        ...data,
+        ...(until ? { until } : {}),
+        by: me.uid,
+        createdAt: serverTimestamp()
+      })
+    }
+    resetForm()
+  }
+  // Πάτημα σε γεγονός -> φόρτωση στη φόρμα για επεξεργασία
+  const startEdit = (ev) => {
+    setTitle(ev.title || '')
+    setTime(ev.time || '')
+    setRepeat(ev.repeat || '')
+    setEndType(ev.until ? 'until' : 'never')
+    setUntilDate(ev.until || '')
+    setEditDate(ev.date)
+    setEditId(ev.id)
+    const main = document.querySelector('main')
+    if (main) main.scrollTop = 0
   }
   const remove = (ev) => {
+    if (editId === ev.id) resetForm()
     if (ev.repeat) setDel({ ev, date: sel })
     else if (confirm(`Διαγραφή «${ev.title}»;`)) deleteDoc(doc(db, 'events', ev.id))
   }
@@ -162,6 +188,13 @@ export default function Calendar({ me, byId }) {
 
       <div className="section-head"><h3>{fmtDayLong(sel)}</h3></div>
       <form className="evform" onSubmit={add}>
+        {editId && (
+          <div className="row">
+            <strong className="grow">✎ Επεξεργασία{repeat ? ' (όλες οι επαναλήψεις)' : ''}</strong>
+            <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+            <button type="button" onClick={resetForm}>Άκυρο</button>
+          </div>
+        )}
         <div className="row">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Νέο γεγονός…" />
           <input
@@ -174,7 +207,7 @@ export default function Calendar({ me, byId }) {
             className="time"
             aria-label="Ώρα (24ωρο)"
           />
-          <button className="primary">+</button>
+          <button className="primary">{editId ? '✓' : '+'}</button>
         </div>
         <select value={repeat} onChange={(e) => setRepeat(e.target.value)}>
           {REPEATS.map(([v, l]) => <option key={v} value={v}>{v === '' ? '↻ ' + l : l}</option>)}
@@ -190,7 +223,7 @@ export default function Calendar({ me, byId }) {
               <input type="number" min="1" max="999" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} className="narrow" aria-label="Πλήθος εμφανίσεων" />
             )}
             {endType === 'until' && (
-              <input type="date" value={untilDate} min={sel} onChange={(e) => setUntilDate(e.target.value)} />
+              <input type="date" value={untilDate} min={editId ? editDate : sel} onChange={(e) => setUntilDate(e.target.value)} />
             )}
           </div>
         )}
@@ -205,9 +238,9 @@ export default function Calendar({ me, byId }) {
           </li>
         ))}
         {dayEvents.map((ev) => (
-          <li key={ev.id}>
-            <span className="time-tag">{ev.time || '—'}</span>
-            <div className="grow">
+          <li key={ev.id} className={ev.id === editId ? 'editing-row' : ''}>
+            <span className="time-tag tappable" onClick={() => startEdit(ev)}>{ev.time || '—'}</span>
+            <div className="grow tappable" onClick={() => startEdit(ev)}>
               <div>{ev.title}</div>
               <small className="muted">{firstName(byId[ev.by])}{ev.repeat ? ` · ↻ ${REPEAT_LABEL[ev.repeat]?.toLowerCase()}${ev.until ? ` έως ${fmtDate(ev.until)}` : ''}` : ''}</small>
             </div>
